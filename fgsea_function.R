@@ -21,7 +21,7 @@ source(file.path(get_script_dir(), "fgsea_helper_functions.R"))
 
 # parse options
 option_list <- list(
-  make_option("--output_dir", "-o",
+  make_option("--output_dir",
     dest="output_dir", type="character",
     help="output directory where files will be saved"),
   make_option("--name",

@@ -1,0 +1,2 @@
+entrypoints:
+  default: fgsea_function.R
