@@ -28,10 +28,8 @@ fgsea_wrapper <- function(output_dir, ranks_input, metadata, genesets, analysis_
         dplyr::select(rownames(annot_colouring))
 
     annotation_list <- unique(metadata$annotation)
-    ES_scores_full <- data.frame(GOI_set = sort(names(genesets)))
+    NES_scores_pvalfilt_full <- data.frame(GOI_set = sort(names(genesets)))
     NES_scores_full <- data.frame(GOI_set = sort(names(genesets)))
-    NES_scores_nofilt_full <- data.frame(GOI_set = sort(names(genesets)))
-    PVAL_scores_full <- data.frame(GOI_set = sort(names(genesets)))
     PADJ_scores_full <- data.frame(GOI_set = sort(names(genesets)))
 
     invisible(lapply(c('ES_matrix', 'ES_plots'), function(x) dir.create(file.path(output_dir, x), recursive = TRUE)))
@@ -61,42 +59,26 @@ fgsea_wrapper <- function(output_dir, ranks_input, metadata, genesets, analysis_
         #plot heatmap of NES scores
         GOI_sets_mod <- subset(genesets, names(genesets) %in% intersect(names(genesets),  fgsea_scores[[1]][,pathway]))
         # create score df per gene set across samples
-        ES_scores <- data.frame(GOI_set = names(GOI_sets_mod))
+        NES_scores_pvalfilt <- data.frame(GOI_set = names(GOI_sets_mod))
         NES_scores <- data.frame(GOI_set = names(GOI_sets_mod))
-        NES_scores_nofilt <- data.frame(GOI_set = names(GOI_sets_mod))
-        PVAL_scores <- data.frame(GOI_set = names(GOI_sets_mod))
         PADJ_scores <- data.frame(GOI_set = names(GOI_sets_mod))
 
         for (i in 1:length(fgsea_scores)) {
-            ES_scores <- cbind(ES_scores, fgsea_scores[[i]][, "ES"])
+            NES_scores_pvalfilt <- cbind(NES_scores_pvalfilt, fgsea_scores[[i]][, "NES"])
             NES_scores <- cbind(NES_scores, fgsea_scores[[i]][, "NES"])
-            NES_scores_nofilt <- cbind(NES_scores_nofilt, fgsea_scores[[i]][, "NES"])
-            PVAL_scores <- cbind(PVAL_scores, fgsea_scores[[i]][, "pval"])
             PADJ_scores <- cbind(PADJ_scores, fgsea_scores[[i]][, "padj"])
-            colnames(ES_scores) <- c(colnames(ES_scores)[1:i], names(fgsea_scores)[i])
+            colnames(NES_scores_pvalfilt) <- c(colnames(NES_scores_pvalfilt)[1:i], names(fgsea_scores)[i])
             colnames(NES_scores) <- c(colnames(NES_scores)[1:i], names(fgsea_scores)[i])
-            colnames(NES_scores_nofilt) <- c(colnames(NES_scores_nofilt)[1:i], names(fgsea_scores)[i])
-            colnames(PVAL_scores) <- c(colnames(PVAL_scores)[1:i], names(fgsea_scores)[i])
             colnames(PADJ_scores) <- c(colnames(PADJ_scores)[1:i], names(fgsea_scores)[i])
         }
-        ES_scores <- column_to_rownames(ES_scores, "GOI_set")
+        NES_scores_pvalfilt <- column_to_rownames(NES_scores_pvalfilt, "GOI_set")
         NES_scores <- column_to_rownames(NES_scores, "GOI_set")
-        NES_scores_nofilt <- column_to_rownames(NES_scores_nofilt, "GOI_set")
-        PVAL_scores <- column_to_rownames(PVAL_scores, "GOI_set")
         PADJ_scores <- column_to_rownames(PADJ_scores, "GOI_set")
 
-        ES_scores <- ES_scores[order(rownames(ES_scores)), , drop = FALSE] # genesets in alphabetical order
+        NES_scores_pvalfilt <- NES_scores_pvalfilt[order(rownames(NES_scores_pvalfilt)), , drop = FALSE] # genesets in alphabetical order
         NES_scores <- NES_scores[order(rownames(NES_scores)), , drop = FALSE]
-        NES_scores_nofilt <- NES_scores_nofilt[order(rownames(NES_scores_nofilt)), , drop = FALSE]
-        PVAL_scores <- PVAL_scores[order(rownames(PVAL_scores)), , drop = FALSE]
         PADJ_scores <- PADJ_scores[order(rownames(PADJ_scores)), , drop = FALSE]
 
-        write.table(rownames_to_column(ES_scores, var = 'GOI_Set'),
-                    file.path(output_dir, 'ES_matrix', paste0(annotation_group, "-ES.tsv")),
-                    sep = "\t", quote = FALSE, row.names = FALSE)
-        write.table(rownames_to_column(PVAL_scores, var = 'GOI_Set'),
-                    file.path(output_dir, 'ES_matrix', paste0(annotation_group, "-PVAL.tsv")),
-                    sep = "\t", quote = FALSE, row.names = FALSE)
         write.table(rownames_to_column(PADJ_scores, var = 'GOI_Set'),
                     file.path(output_dir, 'ES_matrix', paste0(annotation_group, "-PADJ.tsv")),
                     sep = "\t", quote = FALSE, row.names = FALSE)
@@ -104,72 +86,54 @@ fgsea_wrapper <- function(output_dir, ranks_input, metadata, genesets, analysis_
         # Filter the values of NES (converted to NA) that do not have a padj value < 0.05
         padj_mask <- PADJ_scores <= 0.05          # TRUE where significant
         padj_mask[is.na(padj_mask)] <- FALSE      # treat NA padj as non-significant
-        NES_scores[!padj_mask] <- NA
+        NES_scores_pvalfilt[!padj_mask] <- NA
 
         if (any(padj_mask)) {
-            plot_GSEApheatmap_wNAs(NES_scores,
+            plot_GSEApheatmap_wNAs(NES_scores_pvalfilt,
                 file.path(output_dir, 'ES_plots', paste0(annotation_group, '.png')),
                 paste0(annotation_group_og, " - fgsea_", input_type),
                 tool_colour)
         }
         # add scores for annotation group to evergrowing full matrix
-        ES_scores <- rownames_to_column(ES_scores, var = 'GOI_set')
+        NES_scores_pvalfilt <- rownames_to_column(NES_scores_pvalfilt, var = 'GOI_set')
         NES_scores <- rownames_to_column(NES_scores, var = 'GOI_set')
-        NES_scores_nofilt <- rownames_to_column(NES_scores_nofilt, var = 'GOI_set')
-        PVAL_scores <- rownames_to_column(PVAL_scores, var = 'GOI_set')
         PADJ_scores <- rownames_to_column(PADJ_scores, var = 'GOI_set')
 
-        ES_scores_full <- merge(ES_scores_full, ES_scores, by = "GOI_set", all = TRUE)
+        NES_scores_pvalfilt_full <- merge(NES_scores_pvalfilt_full, NES_scores_pvalfilt, by = "GOI_set", all = TRUE)
         NES_scores_full <- merge(NES_scores_full, NES_scores, by = "GOI_set", all = TRUE)
-        NES_scores_nofilt_full <- merge(NES_scores_nofilt_full, NES_scores_nofilt, by = "GOI_set", all = TRUE)
-        PVAL_scores_full <- merge(PVAL_scores_full, PVAL_scores, by = "GOI_set", all = TRUE)
         PADJ_scores_full <- merge(PADJ_scores_full, PADJ_scores, by = "GOI_set", all = TRUE)
 
     }
-    ES_scores_full <- column_to_rownames(ES_scores_full, var = 'GOI_set')
+    NES_scores_pvalfilt_full <- column_to_rownames(NES_scores_pvalfilt_full, var = 'GOI_set')
     NES_scores_full <- column_to_rownames(NES_scores_full, var = 'GOI_set')
-    NES_scores_nofilt_full <- column_to_rownames(NES_scores_nofilt_full, var = 'GOI_set')
-    PVAL_scores_full <- column_to_rownames(PVAL_scores_full, var = 'GOI_set')
     PADJ_scores_full <- column_to_rownames(PADJ_scores_full, var = 'GOI_set')
 
-    
-    ES_scores_full <- ES_scores_full[order(rownames(ES_scores_full)), , drop = FALSE]
+    NES_scores_pvalfilt_full <- NES_scores_pvalfilt_full[order(rownames(NES_scores_pvalfilt_full)), , drop = FALSE]
     NES_scores_full <- NES_scores_full[order(rownames(NES_scores_full)), , drop = FALSE]
-    NES_scores_nofilt_full <- NES_scores_nofilt_full[order(rownames(NES_scores_nofilt_full)), , drop = FALSE]
-    PVAL_scores_full <- PVAL_scores_full[order(rownames(PVAL_scores_full)), , drop = FALSE]
     PADJ_scores_full <- PADJ_scores_full[order(rownames(PADJ_scores_full)), , drop = FALSE]
 
 
-    write.table(rownames_to_column(ES_scores_full, var = 'GOI_Set'),
-                file.path(output_dir, 'ES_matrix', paste0(analysis_name, "-ES.tsv")),
+    write.table(rownames_to_column(NES_scores_pvalfilt_full, var = 'GOI_Set'),
+                file.path(output_dir, paste0(analysis_name, "-fullNES_padjfilt.tsv")),
                 sep = '\t', quote = FALSE, row.names = FALSE)
     write.table(rownames_to_column(NES_scores_full, var = 'GOI_Set'),
                 file.path(output_dir, paste0(analysis_name, "-fullNES.tsv")),
-                sep = '\t', quote = FALSE, row.names = FALSE)
-    write.table(rownames_to_column(NES_scores_nofilt_full, var = 'GOI_Set'),
-                file.path(output_dir, paste0(analysis_name, "-fullNES_nofilt.tsv")),
-                sep = '\t', quote = FALSE, row.names = FALSE)
-    write.table(rownames_to_column(PVAL_scores_full, var = 'GOI_Set'),
-                file.path(output_dir, 'ES_matrix', paste0(analysis_name, "-PVAL.tsv")),
                 sep = '\t', quote = FALSE, row.names = FALSE)
     write.table(rownames_to_column(PADJ_scores_full, var = 'GOI_Set'),
                 file.path(output_dir, 'ES_matrix', paste0(analysis_name, "-PADJ.tsv")),
                 sep = '\t', quote = FALSE, row.names = FALSE)
     
     # plot without legend
-    if (!all(is.na(NES_scores_full))) {
-        plot_GSEApheatmap_wNAs(NES_scores_full,
-            file.path(output_dir, 'ES_plots', paste0(analysis_name, ".png")),
-            paste0(analysis_name, " - fgsea_", input_type),
-            tool_colour, wannotation = annot_colouring)
-        # with legend
-        plot_GSEApheatmap_wNAs(NES_scores_full,
-            file.path(output_dir, 'ES_plots', paste0(analysis_name, "_annot.png")),
-            paste0(analysis_name, " - fgsea_", input_type),
-            tool_colour, wannotation = annot_colouring, wlegend = TRUE)
-    }
+    plot_GSEApheatmap_wNAs(NES_scores_full,
+        file.path(output_dir, 'ES_plots', paste0(analysis_name, ".png")),
+        paste0(analysis_name, " - fgsea_", input_type),
+        tool_colour, wannotation = annot_colouring)
+    # with legend
+    plot_GSEApheatmap_wNAs(NES_scores_full,
+        file.path(output_dir, 'ES_plots', paste0(analysis_name, "_annot.png")),
+        paste0(analysis_name, " - fgsea_", input_type),
+        tool_colour, wannotation = annot_colouring, wlegend = TRUE)
 }
-
 
 plot_GSEApheatmap_wNAs <- function(ES_matrix, png_name, plot_title, tool_colour, wannotation = NA, wlegend = FALSE){
     # function to plot all GSEA pheatmaps the same way, handling NAs in ES matrix outputs
